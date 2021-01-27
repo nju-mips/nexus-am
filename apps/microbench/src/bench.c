@@ -15,13 +15,13 @@ static uint32_t uptime_ms() { return uptime(); }
 
 // The benchmark list
 
-#define ENTRY(_name, _sname, _s, _m, _l, _desc) \
+#define ENTRY(_name, _sname, _s, _m, _l, _h, _desc) \
   { .prepare = bench_##_name##_prepare, \
     .run = bench_##_name##_run, \
     .validate = bench_##_name##_validate, \
     .name = _sname, \
     .desc = _desc, \
-    .settings = {_s, _m, _l}, },
+    .settings = {_s, _m, _l, _h}, },
 
 Benchmark benchmarks[] = {
   BENCHMARK_LIST(ENTRY)
@@ -64,7 +64,7 @@ static unsigned long score(Benchmark *b, unsigned long tsc, unsigned long msec) 
 
 int main() {
   const char *setting_names[] = {
-    "TEST", "TRAIN", "REF"
+    "TEST", "TRAIN", "REF", "HUGE"
   };
   const char *setting_name = setting_names[SETTING];
 
@@ -116,7 +116,7 @@ int main() {
 
   printf("==================================================\n");
   printf("MicroBench %s", pass ? "PASS" : "FAIL");
-  if (SETTING == 2) {
+  if (SETTING == 2 || SETTING == 3) {
     printf("        %d Marks\n", (unsigned int)bench_score);
     printf("                   vs. %d Marks (%s)\n", REF_SCORE, REF_CPU);
   } else {
