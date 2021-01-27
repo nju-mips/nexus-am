@@ -1,24 +1,27 @@
 #include <am.h>
 #include <benchmark.h>
 #include <limits.h>
+#include <klib.h>
 
 Benchmark *current;
 Setting *setting;
 
 static char *hbrk;
 
-#define ARR_SIZE(a) (sizeof((a)) / sizeof((a)[0]))
+#define LENGTH(a) (sizeof((a)) / sizeof((a)[0]))
 #define ROUNDUP(a, sz) ((((uintptr_t)a)+(sz)-1) & ~((sz)-1))
+
+static uint32_t uptime_ms() { return uptime(); }
 
 // The benchmark list
 
-#define ENTRY(_name, _sname, _s1, _s2, _desc) \
+#define ENTRY(_name, _sname, _s, _m, _l, _desc) \
   { .prepare = bench_##_name##_prepare, \
     .run = bench_##_name##_run, \
     .validate = bench_##_name##_validate, \
     .name = _sname, \
     .desc = _desc, \
-    .settings = {_s1, _s2}, },
+    .settings = {_s, _m, _l}, },
 
 Benchmark benchmarks[] = {
   BENCHMARK_LIST(ENTRY)
@@ -26,7 +29,7 @@ Benchmark benchmarks[] = {
 
 // Running a benchmark
 static void bench_prepare(Result *res) {
-  res->msec = uptime();
+  res->msec = uptime_ms();
 }
 
 static void bench_reset() {
@@ -34,7 +37,7 @@ static void bench_reset() {
 }
 
 static void bench_done(Result *res) {
-  res->msec = uptime() - res->msec;
+  res->msec = uptime_ms() - res->msec;
 }
 
 static const char *bench_check(Benchmark *bench) {
@@ -60,61 +63,66 @@ static unsigned long score(Benchmark *b, unsigned long tsc, unsigned long msec) 
 }
 
 int main() {
+  const char *setting_names[] = {
+    "TEST", "TRAIN", "REF"
+  };
+  const char *setting_name = setting_names[SETTING];
+
   _ioe_init();
 
-  printk("======= Running MicroBench [INPUT *%s*] =======\n", SETTING ? "REF" : "TEST");
+  printf("======= Running MicroBench [input *%s*] =======\n", setting_name);
 
   unsigned long bench_score = 0;
   int pass = 1;
-  uint32_t t0 = uptime();
+  uint32_t t0 = uptime_ms();
 
-  for (int i = 0; i < ARR_SIZE(benchmarks); i ++) {
+  for (int i = 0; i < LENGTH(benchmarks); i ++) {
     Benchmark *bench = &benchmarks[i];
     current = bench;
     setting = &bench->settings[SETTING];
     const char *msg = bench_check(bench);
-    printk("[%s] %s: ", bench->name, bench->desc);
+    printf("[%s] %s: ", bench->name, bench->desc);
     if (msg != NULL) {
-      printk("Ignored %s\n", msg);
+      printf("Ignored %s\n", msg);
     } else {
       unsigned long msec = ULONG_MAX;
       int succ = 1;
       for (int i = 0; i < REPEAT; i ++) {
         Result res;
         run_once(bench, &res);
-        printk(res.pass ? "*" : "X");
+        printf(res.pass ? "*" : "X");
         succ &= res.pass;
         if (res.msec < msec) msec = res.msec;
       }
 
-      if (succ) printk(" Passed.");
-      else printk(" Failed.");
+      if (succ) printf(" Passed.");
+      else printf(" Failed.");
 
       pass &= succ;
 
       unsigned long cur = score(bench, 0, msec);
 
-      printk("\n");
+      printf("\n");
       if (SETTING != 0) {
-        printk("  min time: %d ms [%d]\n", (unsigned int)msec, (unsigned int)cur);
+        printf("  min time: %d ms [%d]\n", (unsigned int)msec, (unsigned int)cur);
       }
 
       bench_score += cur;
     }
   }
-  uint32_t t1 = uptime();
+  uint32_t t1 = uptime_ms();
 
-  bench_score /= sizeof(benchmarks) / sizeof(benchmarks[0]);
-  
-  printk("==================================================\n");
-  printk("MicroBench %s", pass ? "PASS" : "FAIL");
-  if (SETTING != 0) {
-    printk("        %d Marks\n", (unsigned int)bench_score);
-    printk("                   vs. %d Marks (%s)\n", REF_SCORE, REF_CPU);
+  bench_score /= LENGTH(benchmarks);
+
+  printf("==================================================\n");
+  printf("MicroBench %s", pass ? "PASS" : "FAIL");
+  if (SETTING == 2) {
+    printf("        %d Marks\n", (unsigned int)bench_score);
+    printf("                   vs. %d Marks (%s)\n", REF_SCORE, REF_CPU);
   } else {
-    printk("\n");
+    printf("\n");
   }
-  printk("Total time: %d ms\n", t1 - t0);
+  printf("Total time: %d ms\n", t1 - t0);
   return 0;
 }
 
