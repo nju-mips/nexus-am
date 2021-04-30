@@ -110,15 +110,17 @@ static size_t keyboard_read(_DEV_INPUT_KBD_t *kbd) {
     return sizeof(*kbd);
   }
 
-  int code = inl(KBD_ADDR + KBD_CODE);
+  uint32_t code = inl(KBD_ADDR + KBD_CODE);
   int *table = normal_scancode;
 
   kbd->keydown = 1;
   kbd->keycode = 0;
   for (int i = 0; i < 4; i++) {
-    int byte =
-        (code & (0xFF << ((3 - i) * 8))) >> ((3 - i) * 8);
-    if (byte == 0xE0)
+    uint8_t *code_ptr = (uint8_t *)&code;
+    int byte = code_ptr[3 - i];
+    if (byte == 0)
+      continue;
+    else if (byte == 0xE0)
       table = e0_scan_code;
     else if (byte == 0xF0)
       kbd->keydown = 0;
